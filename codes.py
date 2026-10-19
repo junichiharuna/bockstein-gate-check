@@ -4,6 +4,8 @@ self-checks of H_X H_Z^T = 0 and the [[n, k, d]] parameters.
 Pure Python, no external dependencies.
 """
 
+from itertools import combinations
+
 from bockstein_check import gf2_echelon, gf2_rank, gf2_reduce, gf2_kernel_basis, gf2_span
 
 
@@ -46,6 +48,52 @@ def rotated_surface_9():
     HX = rows([{1, 2, 4, 5}, {3, 4, 6, 7}, {0, 1}, {7, 8}])
     HZ = rows([{0, 1, 3, 4}, {4, 5, 7, 8}, {2, 5}, {3, 6}])
     return HX, HZ
+
+
+# ----------------------------------------------------------------------
+# Parametrized families (for the generator-form scaling tests; too large
+# for the enumeration-based checks)
+# ----------------------------------------------------------------------
+
+
+def rotated_surface(d):
+    """Rotated surface code [[d^2, 1, d]] (odd d), same layout as
+    rotated_surface_9: qubit (i, j) -> i*d + j, plaquette with top-left corner
+    (i, j) is an X check iff i + j is odd, and the weight-2 boundary checks
+    are the halves of the missing plaquettes of the matching type."""
+    def q(i, j):
+        return i * d + j
+
+    X, Z = [], []
+    for i in range(d - 1):
+        for j in range(d - 1):
+            s = {q(i, j), q(i + 1, j), q(i, j + 1), q(i + 1, j + 1)}
+            (X if (i + j) % 2 else Z).append(s)
+    for j in range(d - 1):
+        if (j - 1) % 2:
+            X.append({q(0, j), q(0, j + 1)})
+        if (d - 1 + j) % 2:
+            X.append({q(d - 1, j), q(d - 1, j + 1)})
+    for i in range(d - 1):
+        if (i - 1) % 2 == 0:
+            Z.append({q(i, 0), q(i + 1, 0)})
+        if (i + d - 1) % 2 == 0:
+            Z.append({q(i, d - 1), q(i + 1, d - 1)})
+    n = d * d
+    return ([[int(j in s) for j in range(n)] for s in X],
+            [[int(j in s) for j in range(n)] for s in Z])
+
+
+def reed_muller(r):
+    """Quantum Reed-Muller code [[2^r - 1, 1, 3]] (r >= 4), generalizing
+    reed_muller_15: X checks v_1..v_r, Z checks all products of 1..r-2 of them."""
+    n = 2 ** r - 1
+    v = [[(j + 1) >> i & 1 for j in range(n)] for i in range(r)]
+    HZ = []
+    for deg in range(1, r - 1):
+        for S in combinations(range(r), deg):
+            HZ.append([int(all(v[i][j] for i in S)) for j in range(n)])
+    return [row[:] for row in v], HZ
 
 
 # ----------------------------------------------------------------------
